@@ -4,6 +4,7 @@ __pycache__/
 *$py.class
 
 /dataset
+/dataset_updated
 /logs
 # C extensions
 *.so
