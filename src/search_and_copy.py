@@ -1,0 +1,103 @@
+import git
+import os
+import shutil
+import logging
+from pythonjsonlogger import jsonlogger
+
+logger = logging.getLogger(__name__)
+file_handler = logging.FileHandler("./logs/script_json.log")
+formatter = jsonlogger.JsonFormatter(
+    fmt="%(asctime)s %(levelname)s %(message)s %(filename)s %(lineno)s"
+)
+file_handler.setFormatter(formatter)
+logger.addHandler(file_handler)
+logger.setLevel(logging.INFO)
+
+
+repo_path = '/home/davi/Documentos/GitHub/cvelistV5'
+output_dir = "/home/davi/Documentos/GitHub/cve_list_pipeline/dataset_updated"
+LAST_COMMIT_FILE = "./assets/last_commit.txt"
+
+def get_last_commit():
+    if os.path.exists(LAST_COMMIT_FILE):
+        with open(LAST_COMMIT_FILE, "r") as f:
+            return f.read().strip()
+    return None
+
+def save_last_commit(commit_hash):
+    with open(LAST_COMMIT_FILE, "w") as f:
+        f.write(commit_hash)
+
+try:
+    logger.info("Acessando o repositorio local...")
+    repo = git.Repo(repo_path)
+
+    logger.info("Atualizando repositorio local...")
+    origin = repo.remotes.origin
+    origin.pull()
+    
+    latest_commit = repo.head.commit
+    last_commit_hash = get_last_commit()
+
+    if last_commit_hash:
+        last_commit = repo.commit(last_commit_hash)
+    else:
+        logger.info("Nao ha ultimo commit verificado. Crie um documento 'last_commit.txt' com o hash do ultimo commit verificado.")
+        exit(1)
+
+    if latest_commit.hexsha == last_commit.hexsha:
+        logger.info("Nao ha novos commits.")
+        exit(0)
+
+    logger.info("Checando se exitem novos commits...")
+
+    commits = list(repo.iter_commits(f"{last_commit.hexsha}..{latest_commit.hexsha}"))
+
+    # Iterar sobre os commits e verificar as alterações, 
+    # do mais antigo para o mais recente
+    for commit in reversed(commits):  
+        logger.info("Verificando commit", extra={
+        "commit_hash": commit.hexsha,
+        "commit_message": commit.message.strip()
+    })
+    
+    # Comparar com o commit anterior
+    if commit.parents:
+        previous_commit = commit.parents[0]
+        diff = previous_commit.diff(commit)
+
+        # Verificar arquivos adicionados ou modificados
+        files_to_copy = []
+        for file_diff in diff:
+            if file_diff.change_type in ["A", "M"]:  # Arquivo adicionado ou modificado
+                files_to_copy.append(file_diff.a_path)
+                logger.debug("Arquivo detectado", extra={
+                    "file_path": file_diff.a_path,
+                    "change_type": file_diff.change_type
+                })
+
+        # Copiar os arquivos detectados
+        for file_path in files_to_copy:
+            src_path = os.path.join(repo_path, file_path)
+            dest_path = os.path.join(output_dir, file_path)
+            
+            # Criar diretórios necessários no destino
+            os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+            
+            # Copiar o arquivo
+            shutil.copy2(src_path, dest_path)
+            logger.info("Arquivo copiado", extra={
+                "source": src_path,
+                "destination": dest_path,
+                "status": "success"
+            })
+
+    save_last_commit(commit.hexsha)
+    logger.info("Copia concluida")
+
+except git.GitCommandError as e:
+    logger.error("Erro ao executar comando Git", extra={"error": str(e)})
+except FileNotFoundError as e:
+    logger.error("Arquivo ou diretorio não encontrado", extra={"error": str(e)})
+except Exception as e:
+    logger.critical("Erro inesperado", extra={"error": str(e)})
