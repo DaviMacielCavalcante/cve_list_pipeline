@@ -6,6 +6,7 @@ __pycache__/
 /dataset
 /dataset_updated
 /logs
+*.ipynb
 # C extensions
 *.so
 
