@@ -7,6 +7,8 @@ __pycache__/
 /dataset_updated
 /logs
 *.ipynb
+
+/assets/last_commit.txt
 # C extensions
 *.so
 
