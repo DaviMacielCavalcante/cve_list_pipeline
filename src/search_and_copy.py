@@ -96,13 +96,12 @@ try:
         
         # Copiar o arquivo
         shutil.copy2(src_path, output_dir)
-        logger.info("Arquivo copiado", extra={
-            "source": src_path,
-            "destination": output_dir,
+        
+    logger.info("Arquivos copiados", extra={
             "status": "success"
         })
-
-    save_last_commit(last_commit.hexsha)
+    
+    save_last_commit(latest_commit.hexsha)
     logger.info("Copia concluida")
 
 except git.GitCommandError as e:
