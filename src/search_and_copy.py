@@ -28,46 +28,41 @@ def save_last_commit(commit_hash):
     with open(LAST_COMMIT_FILE, "w") as f:
         f.write(commit_hash)
 
-try:
+def update_local_repo():
     logger.info("Acessando o repositorio local...")
     repo = git.Repo(repo_path)
 
     logger.info("Atualizando repositorio local...")
     origin = repo.remotes.origin
     origin.pull()
-    
-    latest_commit = repo.head.commit
-    last_commit_hash = get_last_commit()
 
-    if last_commit_hash:
-        last_commit = repo.commit(last_commit_hash)
-    else:
-        logger.info("Nao ha ultimo commit verificado. Crie um documento 'last_commit.txt' com o hash do ultimo commit verificado.")
-        exit(1)
+    return repo
 
+def check_new_commits(last_commit_hash, latest_commit):
+
+    if not last_commit:
+        error_msg = "Nao ha ultimo commit verificado. Crie um documento 'last_commit.txt' com o hash do ultimo commit verificado."
+        return False, error_msg
     if latest_commit.hexsha == last_commit.hexsha:
-        logger.info("Nao ha novos commits.")
-        exit(0)
+        error_msg = "Nao ha novos commits."
+        return None, error_msg
+    return repo.commit(last_commit_hash), None    
 
-    logger.info("Checando se exitem novos commits...")
+def checking_new_or_modified_files(commits):
 
-    commits = list(repo.iter_commits(f"{last_commit.hexsha}..{latest_commit.hexsha}"))
+    files_to_copy = []
 
-    # Iterar sobre os commits e verificar as alterações, 
-    # do mais antigo para o mais recente
     for commit in reversed(commits):  
         logger.info("Verificando commit", extra={
         "commit_hash": commit.hexsha,
         "commit_message": commit.message.strip()
     })
-    
-    # Comparar com o commit anterior
+        
     if commit.parents:
         previous_commit = commit.parents[0]
         diff = previous_commit.diff(commit)
 
         # Verificar arquivos adicionados ou modificados
-        files_to_copy = []
         for file_diff in diff:
             if file_diff.change_type in ["A", "M"]:  # Arquivo adicionado ou modificado
                 files_to_copy.append(file_diff.a_path)
@@ -76,23 +71,43 @@ try:
                     "change_type": file_diff.change_type
                 })
 
-        # Copiar os arquivos detectados
-        for file_path in files_to_copy:
-            src_path = os.path.join(repo_path, file_path)
-            dest_path = os.path.join(output_dir, file_path)
-            
-            # Criar diretórios necessários no destino
-            os.makedirs(os.path.dirname(dest_path), exist_ok=True)
-            
-            # Copiar o arquivo
-            shutil.copy2(src_path, dest_path)
-            logger.info("Arquivo copiado", extra={
-                "source": src_path,
-                "destination": dest_path,
-                "status": "success"
-            })
+    return files_to_copy
+        
 
-    save_last_commit(commit.hexsha)
+try:
+    repo = update_local_repo()
+    latest_commit = repo.head.commit
+    last_commit_hash = get_last_commit()
+
+    logger.info("Checando se exitem novos commits...")
+
+    last_commit, error_msg = check_new_commits(last_commit_hash, latest_commit)
+
+    if not last_commit:
+        raise Exception(error_msg)
+    elif last_commit == None:
+        raise Exception(error_msg)
+
+    commits = list(repo.iter_commits(f"{last_commit.hexsha}..{latest_commit.hexsha}"))
+    
+    files_to_copy = checking_new_or_modified_files(commits)
+    
+    for file_path in files_to_copy:
+        src_path = os.path.join(repo_path, file_path)
+        dest_path = os.path.join(output_dir, file_path)
+        
+        # Criar diretórios necessários no destino
+        os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+        
+        # Copiar o arquivo
+        shutil.copy2(src_path, output_dir)
+        logger.info("Arquivo copiado", extra={
+            "source": src_path,
+            "destination": output_dir,
+            "status": "success"
+        })
+
+    save_last_commit(last_commit.hexsha)
     logger.info("Copia concluida")
 
 except git.GitCommandError as e:
