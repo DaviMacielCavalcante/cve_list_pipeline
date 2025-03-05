@@ -38,14 +38,14 @@ def update_local_repo():
 
     return repo
 
-def check_new_commits(last_commit_hash, latest_commit):
+def check_new_commits(last_commit_hash, latest_commit, repo):
 
-    if not last_commit:
+    if not last_commit_hash:
         error_msg = "Nao ha ultimo commit verificado. Crie um documento 'last_commit.txt' com o hash do ultimo commit verificado."
         return False, error_msg
-    if latest_commit.hexsha == last_commit.hexsha:
+    if latest_commit.hexsha == last_commit_hash:
         error_msg = "Nao ha novos commits."
-        return None, error_msg
+        return False, error_msg
     return repo.commit(last_commit_hash), None    
 
 def checking_new_or_modified_files(commits):
@@ -58,18 +58,18 @@ def checking_new_or_modified_files(commits):
         "commit_message": commit.message.strip()
     })
         
-    if commit.parents:
-        previous_commit = commit.parents[0]
-        diff = previous_commit.diff(commit)
+        if commit.parents:
+            previous_commit = commit.parents[0]
+            diff = previous_commit.diff(commit)
 
-        # Verificar arquivos adicionados ou modificados
-        for file_diff in diff:
-            if file_diff.change_type in ["A", "M"]:  # Arquivo adicionado ou modificado
-                files_to_copy.append(file_diff.a_path)
-                logger.debug("Arquivo detectado", extra={
-                    "file_path": file_diff.a_path,
-                    "change_type": file_diff.change_type
-                })
+            # Verificar arquivos adicionados ou modificados
+            for file_diff in diff:
+                if file_diff.change_type in ["A", "M"]:  # Arquivo adicionado ou modificado
+                    files_to_copy.append(file_diff.a_path)
+                    logger.debug("Arquivo detectado", extra={
+                        "file_path": file_diff.a_path,
+                        "change_type": file_diff.change_type
+                    })
 
     return files_to_copy
         
@@ -81,11 +81,9 @@ try:
 
     logger.info("Checando se exitem novos commits...")
 
-    last_commit, error_msg = check_new_commits(last_commit_hash, latest_commit)
+    last_commit, error_msg = check_new_commits(last_commit_hash, latest_commit, repo)
 
     if not last_commit:
-        raise Exception(error_msg)
-    elif last_commit == None:
         raise Exception(error_msg)
 
     commits = list(repo.iter_commits(f"{last_commit.hexsha}..{latest_commit.hexsha}"))
@@ -95,9 +93,6 @@ try:
     for file_path in files_to_copy:
         src_path = os.path.join(repo_path, file_path)
         dest_path = os.path.join(output_dir, file_path)
-        
-        # Criar diretórios necessários no destino
-        os.makedirs(os.path.dirname(dest_path), exist_ok=True)
         
         # Copiar o arquivo
         shutil.copy2(src_path, output_dir)
