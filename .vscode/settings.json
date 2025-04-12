@@ -1,0 +1,6 @@
+{
+    "sonarlint.connectedMode.project": {
+        "connectionId": "cloud",
+        "projectKey": "DaviMacielCavalcante_cve_list_pipeline"
+    }
+}

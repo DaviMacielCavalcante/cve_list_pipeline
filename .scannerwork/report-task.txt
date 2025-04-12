@@ -1,6 +1,0 @@
-projectKey=analise-cve
-serverUrl=http://localhost:9000
-serverVersion=25.4.0.105899
-dashboardUrl=http://localhost:9000/dashboard?id=analise-cve
-ceTaskId=6802d13e-aaa6-4f6a-9fd5-5c1fc20a861b
-ceTaskUrl=http://localhost:9000/api/ce/task?id=6802d13e-aaa6-4f6a-9fd5-5c1fc20a861b
