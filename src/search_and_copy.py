@@ -84,7 +84,7 @@ try:
     last_commit, error_msg = check_new_commits(last_commit_hash, latest_commit, repo)
 
     if not last_commit:
-        raise Exception(error_msg)
+        raise Exception("Ausência de último commit verificado.")
 
     commits = list(repo.iter_commits(f"{last_commit.hexsha}..{latest_commit.hexsha}"))
     
